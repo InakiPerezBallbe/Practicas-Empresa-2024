@@ -31,7 +31,5 @@ pp.add("Conciencia_Ambiental", (sum(criterios) >= 8).astype(int))
 
 pp.encode("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/categorical_cols/Sostenibilidad.txt")
 
-pp.data.to_csv("datos.csv")
-
 #MODELAJE
 m = Modelaje(pp.data, "Conciencia_Ambiental", 0.2)
