@@ -1,0 +1,23 @@
+OHE
+#Acciones_Reducir_Huella
+#Especialidad
+#Grado
+OE
+#Frecuencia_Uso_Dispositivos:nunca;ocasionalmente;algunas horas al día;constantemente
+#Redes_Sociales_Diario:nunca;ocasionalmente;algunas horas al día;constantemente
+#Tiempo_Redes_Sociales:menos de 1 hora;entre 1 hora y 2 horas;entre 2 horas y 3 horas;más de 3 horas
+#Impacto_Uso_Dispositivos:lo desconocía.;no, no lo había considerado.;sí, ocasionalmente lo considero.;sí, a menudo pienso en ello.
+#Apagar_Dispositivos:nunca los apago.;ocasionalmente.;la mayoría de las veces.;siempre apago mis dispositivos.
+#Enviar_Correos_Pesados:nunca.;ocasionalmente.;la mayoría de las veces.;siempre.
+#Imprimir_Grandes_Documentos:nunca.;ocasionalmente.;la mayoría de las veces.;siempre.
+#Comprimir_Archivos:nunca.;ocasionalmente.;la mayoría de las veces.;siempre.
+#Reducir_Redes_Sociales:no, prefiero no hacerlo.;no estoy seguro/a.;sí, pero me resulta difícil.;sí, definitivamente.
+#Edad:entre 22 y 24;entre 25 y 27;entre 28 y 30;mas de 31
+LE
+#Genero
+#Conocimiento_Huella_Carbono
+#Impacto_CO2_Stickers_Gifs
+#Reducir_Stickers_Gifs
+#Aprendizaje_Sostenibilidad_TIC
+#Compartir_Conocimiento_Sostenibilidad
+#Conciencia_Ambiental
