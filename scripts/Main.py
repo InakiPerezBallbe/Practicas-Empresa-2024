@@ -1,6 +1,6 @@
 from Analisis import Preprocesamiento
 from Analisis import Modelaje
-import pandas as pd
+from Analisis import Clasificacion
 
 #PREPROCESAMIENTO
 pp = Preprocesamiento("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/data/Sostenibilidad_tic.csv")
@@ -9,7 +9,6 @@ pp.standarize("Grado", "C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024
 pp.replace("Especialidad", "Matemáticas", "Grado", "ingeniería", "Grado en Ingeniería Matemática")
 pp.replace("Especialidad", "Otra", "Grado", "ingeniería", "Grado en Ingeniería (sin especificar)")
 
-# Crear una lista de condiciones comprometidas
 criterios = []
 
 criterios.append(pp.data['Frecuencia_Uso_Dispositivos'].str.lower().isin(['nunca', 'ocasionalmente']))
@@ -28,8 +27,14 @@ criterios.append(pp.data['Aprendizaje_Sostenibilidad_TIC'] == 'sí, definitivame
 criterios.append(pp.data['Compartir_Conocimiento_Sostenibilidad'] == 'sí, definitivamente.')
 
 pp.add("Conciencia_Ambiental", (sum(criterios) >= 8).astype(int))
-
 pp.encode("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/categorical_cols/Sostenibilidad.txt")
 
 #MODELAJE
 m = Modelaje(pp.data, "Conciencia_Ambiental", 0.2)
+m.randomForest()
+
+print(m.ytrain)
+
+#CLASIFICACION
+c = Clasificacion(m)
+
