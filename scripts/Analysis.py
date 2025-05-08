@@ -9,100 +9,168 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
+from sklearn.feature_extraction.text import CountVectorizer
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, LabelEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import train_test_split
-from imblearn.over_sampling import SMOTENC
+from imblearn.over_sampling import SMOTENC, SMOTE, SMOTEN
+import nltk
+nltk.download('stopwords')
+from nltk.corpus import stopwords
 
 class Preprocessing:
-    
-    def __init__(self, link):
-        self.link = link
-        self.data = pd.read_csv(link)
-        for col in self.data:
-            self.data.loc[:, col] = self.data[col].map(lambda x: x.strip().lower() if isinstance(x, str) else x)
-           
+
+    def __init__(self, link, encoding, delimiter):
+        read_kwargs = {'encoding': encoding, 'delimiter': delimiter}
+        read_kwargs = {k: v for k, v in read_kwargs.items() if v is not None}
+        self.data = pd.read_csv(link, **read_kwargs)
+        
+        for col in self.data.select_dtypes(include=['object', 'string']):
+            self.data[col] = self.data[col].astype(str).str.strip().str.lower()
+
+        for col in self.data.columns:
+            self.data[col] = pd.to_numeric(self.data[col], errors='ignore')
+
     def add(self, column_name, values):
+        if isinstance(values, str) or not hasattr(values, '__len__'):
+            raise TypeError("El argumento 'values' debe ser una lista, Serie u otro iterable, no un string.")
+
         if len(values) == len(self.data):
-            # Si tiene el mismo tamaño, se añade la columna
             self.data[column_name] = values
         else:
-            raise ValueError("La longitud del array no coincide con el número de filas del DataFrame")
-        
+            raise ValueError("La longitud del array no coincide con el número de filas del DataFrame.")
+    
     def delete(self, columns):
-        for column in columns:
-            self.data.drop(columns=[column], inplace=True)
+        if isinstance(columns, str):
+            columns = [columns]
 
-    def replace(self, column1, column1_value, column2, column2_value, new_column2_value):
-        self.data.loc[(self.data[column1] == column1_value.lower()) & (self.data[column2] == column2_value.lower()), column2] = new_column2_value.lower()
+        missing = [col for col in columns if col not in self.data.columns]
+        if missing:
+            raise KeyError(f"Las siguientes columnas no se encontraron en el DataFrame: {missing}")
+
+        self.data.drop(columns=columns, inplace=True)
+
+    def replace(self, column1, column1_value, column2, column2_value, new_column2_value, case_sensitive=False):
+        if column1 not in self.data.columns or column2 not in self.data.columns:
+            raise KeyError(f"Las columnas {column1} o {column2} no existen en el DataFrame.")
+
+        if not case_sensitive:
+            column1_value = column1_value.lower()
+            column2_value = column2_value.lower()
+
+        self.data.loc[
+            (self.data[column1].apply(lambda x: x.lower() if isinstance(x, str) else x) == column1_value) &
+            (self.data[column2].apply(lambda x: x.lower() if isinstance(x, str) else x) == column2_value), 
+            column2
+        ] = new_column2_value
     
     def standarize (self, column_name, link):
+        if column_name not in self.data.columns:
+            raise KeyError(f"La columna {column_name} no existe en el DataFrame.")
+        
         mapping = {}
 
-        with open(link, encoding="utf-8") as f:
-            for line in f:
-                (key, val) = line.split(":")
-                mapping.update([(key.lower(), val.strip().lower().split(","))])
+        try:
+            with open(link, encoding="utf-8") as f:
+                for line in f:
+                    key, val = line.strip().split(":")
+                    mapping[key.lower()] = [v.strip().lower() for v in val.split(",")]
+        except FileNotFoundError:
+            raise FileNotFoundError(f"El archivo {link} no se encontró.")
+        except Exception as e:
+            raise ValueError(f"Hubo un error al procesar el archivo: {e}")
 
         for idvalue, value in enumerate(self.data[column_name]):
-            value = value.strip().lower()
+            value = value.strip().lower() 
             for standard, variations in mapping.items():
-                if value in map(str.lower, variations):
-                    self.data.loc[idvalue, column_name] = standard.lower()
-        
-        self.data[column_name] = self.data[column_name].str.lower()
+                if value in variations:
+                    self.data.loc[idvalue, column_name] = standard
+                    break 
+
+    def resample(self, target):
+        y = self.data[target]
+        X = self.data.drop(target, axis=1)
+
+        categorical_cols = X.select_dtypes(include=['object', 'category']).columns
+        numeric_cols = X.select_dtypes(include=['number']).columns
+        smote_estimator = None
+
+        if len(numeric_cols) > 0 and len(categorical_cols) > 0:
+            categorical_indices = [X.columns.get_loc(col) for col in categorical_cols]
+            smote_estimator = SMOTENC(
+                categorical_features=categorical_indices,
+                random_state=45
+            )
+        elif len(numeric_cols) > 0:
+            smote_estimator = SMOTE(random_state=45)
+        else:
+            smote_estimator = SMOTEN(random_state=45)
+
+        X_resampled, y_resampled = smote_estimator.fit_resample(X, y)
+        self.data = pd.concat([pd.DataFrame(X_resampled, columns=X.columns), pd.Series(y_resampled, name=target)], axis=1)
 
     def encode(self, link):
         encoders = {}
 
-        with open(link, encoding="utf-8") as f:
-            enc_type = None
+        try:
+            with open(link, encoding="utf-8") as f:
+                enc_type = None
 
-            for line in f:
-                line = line.strip()
+                for line in f:
+                    line = line.strip()
 
-                if line == "OHE":
-                    enc_type = "OHE"
-                elif line == "OE":
-                    enc_type = "OE"
-                elif line == "LE":
-                    enc_type = "LE"
-                elif line.startswith("#"):
-                    col = line.replace("#", "").strip()
+                    if line in {"OHE", "OE", "LE", "CV"}:
+                        enc_type = line
+                    elif line.startswith("#"):
+                        col = line.replace("#", "").strip()
 
-                    if enc_type == "LE":
-                        le = LabelEncoder()
-                        self.data[col] = le.fit_transform(self.data[col])
-                        encoders[col] = le
-                    elif enc_type == "OE":
-                        categories = None
-                        if ":" in col:
-                            col, cat_str = col.split(":")
-                            categories = [cat_str.split(";")]
-                        oe = OrdinalEncoder(categories=categories) if categories else OrdinalEncoder()
-                        self.data[col] = oe.fit_transform(self.data[[col]])
-                        encoders[col] = oe 
-                    elif enc_type == "OHE":
-                        ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
-                        transformed = ohe.fit_transform(self.data[[col]])
-                        columns = ohe.get_feature_names_out([col])
-                        df_ohe = pd.DataFrame(transformed, columns=columns, index=self.data.index)
-                        self.data = self.data.drop(columns=[col]).join(df_ohe)
-                        encoders[col] = ohe
-        
+                        if col not in self.data.columns:
+                            raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+
+                        if enc_type == "LE":
+                            le = LabelEncoder()
+                            self.data[col] = le.fit_transform(self.data[col])
+                            encoders[col] = le
+                        elif enc_type == "OE":
+                            categories = None
+                            if ":" in col:
+                                col, cat_str = col.split(":")
+                                categories = [cat_str.split(";")]
+                            oe = OrdinalEncoder(categories=categories) if categories else OrdinalEncoder()
+                            self.data[col] = oe.fit_transform(self.data[[col]])
+                            encoders[col] = oe
+                        elif enc_type == "OHE":
+                            ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+                            transformed = ohe.fit_transform(self.data[[col]])
+                            columns = ohe.get_feature_names_out([col])
+                            df_ohe = pd.DataFrame(transformed, columns=columns, index=self.data.index)
+                            self.data = self.data.drop(columns=[col]).join(df_ohe)
+                            encoders[col] = ohe
+                        elif enc_type == "CV":
+                            stopwords_combinadas = list(stopwords.words('spanish')) + list(stopwords.words('english'))
+                            stopwords_combinadas = list(set(stopwords_combinadas))
+                            cv = CountVectorizer(stop_words=stopwords_combinadas)
+                            transformed = cv.fit_transform(self.data[col].astype(str))
+                            df_cv = pd.DataFrame(transformed.toarray(), columns=cv.get_feature_names_out(), index=self.data.index)
+                            self.data = self.data.drop(columns=[col]).join(df_cv)
+                            encoders[col] = cv
+
+        except FileNotFoundError:
+            raise FileNotFoundError(f"El archivo {link} no se encuentra.")
+        except Exception as e:
+            raise ValueError(f"Hubo un error al procesar el archivo: {e}")
+
         return encoders
 
-class Clasification:
+class Classification:
 
-    def __init__ (self, data, target, test_size):
+    def __init__(self, data, target, test_size=0.2):
         Y = data[target]
         X = data.drop(target, axis=1)
+
         self.xtrain, self.xtest, self.ytrain, self.ytest = train_test_split(X, Y, test_size=test_size, random_state=42)
-        smotenc = SMOTENC(categorical_features=list(range(0, len(data.columns)-2)), random_state=42)
-        self.xtrain, self.ytrain = smotenc.fit_resample(self.xtrain, self.ytrain)
-        self.xtrain = self.xtrain.round(decimals=0)
         self.list_models = {
             'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
             'Decision Tree': DecisionTreeClassifier(random_state=42),
@@ -111,7 +179,7 @@ class Clasification:
             'SVC': SVC(probability=True, random_state=42),
             'Naive Bayes': GaussianNB(),
             'MLP Classifier': MLPClassifier(max_iter=1000, random_state=42),
-            'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42),
+            'XGBoost': XGBClassifier(eval_metric='mlogloss', random_state=42),
             'Gradient Boosting': GradientBoostingClassifier(random_state=42),
             'AdaBoost': AdaBoostClassifier(random_state=42),
             'CatBoost': CatBoostClassifier(verbose=0, random_state=42)
@@ -119,88 +187,157 @@ class Clasification:
 
     def trainEvaluate(self):
         records = []
-        
+
         for name, model in self.list_models.items():
+            try:
                 model.fit(self.xtrain, self.ytrain)
                 ypred = model.predict(self.xtest)
                 
+                accuracy = accuracy_score(self.ytest, ypred)
+                precision = precision_score(self.ytest, ypred, average='weighted', zero_division=1)
+                recall = recall_score(self.ytest, ypred, average='weighted')
+                f1 = f1_score(self.ytest, ypred, average='weighted')
+                
                 record = {
                     'Model': name,
-                    'Accuracy': accuracy_score(self.ytest, ypred),
-                    'Precision': precision_score(self.ytest, ypred, average='weighted'),
-                    'Recall': recall_score(self.ytest, ypred, average='weighted'),
-                    'F1-Score': f1_score(self.ytest, ypred, average='weighted')
+                    'Accuracy': accuracy,
+                    'Precision': precision,
+                    'Recall': recall,
+                    'F1-Score': f1
                 }
                 records.append(record)
             
+            except Exception as e:
+                print(f"Error al entrenar o predecir con el modelo {name}: {e}")
+                record = {
+                    'Model': name,
+                    'Accuracy': None,
+                    'Precision': None,
+                    'Recall': None,
+                    'F1-Score': None
+                }
+                records.append(record)
+        
         return pd.DataFrame(records).sort_values(by='F1-Score', ascending=False).reset_index(drop=True)
     
-    def train(self, models_selected = []):
+    def train(self, models_selected=[]):
         estimators = []
 
-        for name, model in self.list_models.items():
-            if name in models_selected:
+        for name in models_selected:
+            if name in self.list_models:
+                model = self.list_models[name]
+                if name == 'SVC' and not hasattr(model, 'probability'):
+                    model.probability = True
                 estimators.append((name, model))
+            else:
+                print(f"Advertencia: El modelo '{name}' no se encuentra en la lista de modelos disponibles.")
+
+        if not estimators:
+            raise ValueError("No se ha seleccionado ningún modelo válido para el VotingClassifier.")
 
         self.model = VotingClassifier(estimators=estimators, voting='soft')
         self.model.fit(self.xtrain, self.ytrain)
+        
         ypred = self.model.predict(self.xtest)
+        
         record = {
-                'Model': "VotingClassifier",
-                'Accuracy': accuracy_score(self.ytest, ypred),
-                'Precision': precision_score(self.ytest, ypred, average='weighted'),
-                'Recall': recall_score(self.ytest, ypred, average='weighted'),
-                'F1-Score': f1_score(self.ytest, ypred, average='weighted')
-            }
+            'Model': "VotingClassifier",
+            'Accuracy': accuracy_score(self.ytest, ypred),
+            'Precision': precision_score(self.ytest, ypred, average='weighted', zero_division=1),
+            'Recall': recall_score(self.ytest, ypred, average='weighted'),
+            'F1-Score': f1_score(self.ytest, ypred, average='weighted')
+        }
 
         return pd.DataFrame([record])
 
     def predict(self, row):
+        if isinstance(row, pd.Series):
+            row = row.to_frame().T
+
         ypred = self.model.predict(row)
         yprob = self.model.predict_proba(row)
+        
         row_pred = pd.concat([row, pd.DataFrame(ypred, columns=[self.ytrain.name])], axis=1)
 
-        return row_pred, (yprob[0][ypred] * 100).round(2)
+        prob_values = [yprob[i][ypred[i]] for i in range(len(ypred))]
+        prob_values = [p * 100 for p in prob_values]
+
+        return row_pred, pd.Series(prob_values).round(2)
 
 class Counterfactual:
 
-    def __init__(self, model, data, target):
+    def __init__(self, model, data, target, continuous_features=None, method="random"):
+        if not hasattr(model, 'predict') or not callable(getattr(model, 'predict')):
+            raise ValueError("El modelo debe tener un método 'predict'.")
+        
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError("Los datos deben ser un DataFrame de pandas.")
+        
+        if target not in data.columns:
+            raise ValueError(f"La columna objetivo '{target}' no se encuentra en los datos.")
+        
+        continuous_features = continuous_features or []
+        
+        try:
+            dmodel = dice_ml.Model(model=model, backend="sklearn")
+            d = dice_ml.Data(dataframe=data, continuous_features=continuous_features, outcome_name=target)
+            self.exp = dice_ml.Dice(d, dmodel, method=method)
+        except Exception as e:
+            raise ValueError(f"Hubo un error al inicializar DiceML: {e}")
+        
         self.model = model
         self.data = data
         self.target = target
-        dmodel = dice_ml.Model(model=model, backend="sklearn")
-        d = dice_ml.Data(dataframe=data, continuous_features=[], outcome_name=target)
-        self.exp = dice_ml.Dice(d, dmodel, method="random")
 
     def counterfac(self, row, encoders):
-        cf_row = row.iloc[:, row.columns != self.target]
-        dice_exp = self.exp.generate_counterfactuals(cf_row, total_CFs=4, desired_class="opposite", random_seed=42)
+        if not isinstance(row, pd.DataFrame):
+            raise ValueError("La fila debe ser un DataFrame.")
+
+        cf_row = row.drop(columns=[self.target])
+        
+        try:
+            dice_exp = self.exp.generate_counterfactuals(cf_row, total_CFs=4, desired_class="opposite", random_seed=42)
+        except Exception as e:
+            raise ValueError(f"Error al generar contra-factuales: {e}")
+        
         cf_data = dice_exp.cf_examples_list[0].final_cfs_df
+        
         cf_data = self.__decode(cf_data, encoders)
         cf_row = self.__decode(row, encoders)
 
-        for col in cf_data.columns:
-            if (cf_data[col] == cf_row.iloc[0][col]).all():
-                cf_data.drop(columns=col, inplace=True)
-                cf_row.drop(columns=col, inplace=True)
+        unchanged_columns = cf_data.columns[cf_data.eq(cf_row.iloc[0]).all()]
+        cf_data.drop(columns=unchanged_columns, inplace=True)
+        cf_row.drop(columns=unchanged_columns, inplace=True)
 
-        print(cf_row)
-        print(cf_data)
+        print("Fila original:", cf_row)
+        print("Contra-factuales generados:", cf_data)
+        
+        return cf_row, cf_data
 
     def __decode(self, data, encoders):
         for col, encoder in encoders.items():
-                    if isinstance(encoder, LabelEncoder):
-                        data[col] = data[col].astype('int64')
-                        data[col] = encoder.inverse_transform(data[col])
+            if col in data.columns:
+                if isinstance(encoder, LabelEncoder):
+                    data[col] = data[col].astype('int64')
+                    data[col] = encoder.inverse_transform(data[col])
 
-                    elif isinstance(encoder, OrdinalEncoder):
-                        data[col] = encoder.inverse_transform(data[[col]]).ravel()
+                elif isinstance(encoder, OrdinalEncoder):
+                    data[col] = encoder.inverse_transform(data[[col]]).ravel()
 
-                    elif isinstance(encoder, OneHotEncoder):
-                        ohe_cols = encoder.get_feature_names_out([col])
-                        data[col] = encoder.inverse_transform(data[ohe_cols]).ravel()
-                        data = data.drop(columns=ohe_cols)
-        
+                elif isinstance(encoder, OneHotEncoder):
+                    ohe_cols = encoder.get_feature_names_out([col])
+                    transformed = encoder.inverse_transform(data[ohe_cols])
+                    data[col] = transformed.ravel()
+                    data = data.drop(columns=ohe_cols)
+
+                elif isinstance(encoder, CountVectorizer):
+                    transformed = encoder.inverse_transform(data)
+                    df_cv = pd.DataFrame(transformed.toarray(), columns=encoder.get_feature_names_out(), index=data.index)
+                    data = data.drop(columns=[col]).join(df_cv)
+
         cols = list(data.columns)
-        cols[cols.index(self.target)], cols[-1] = cols[-1], cols[cols.index(self.target)]
-        return data[cols]
+        if self.target in cols:
+            cols[cols.index(self.target)], cols[-1] = cols[-1], cols[cols.index(self.target)]
+            data = data[cols]
+
+        return data
