@@ -2,6 +2,7 @@ import pandas as pd
 import dice_ml
 import lime
 import lime.lime_tabular
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
@@ -126,10 +127,10 @@ class Preprocessing:
                     elif line.startswith("#"):
                         col = line.replace("#", "").strip()
 
-                        if col not in self.data.columns:
-                            raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
-
                         if enc_type == "LE":
+                            if col not in self.data.columns:
+                                raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+
                             le = LabelEncoder()
                             self.data[col] = le.fit_transform(self.data[col])
                             encoders[col] = le
@@ -138,10 +139,18 @@ class Preprocessing:
                             if ":" in col:
                                 col, cat_str = col.split(":")
                                 categories = [cat_str.split(";")]
+
+                            if col not in self.data.columns:
+                                raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+                            
                             oe = OrdinalEncoder(categories=categories) if categories else OrdinalEncoder()
                             self.data[col] = oe.fit_transform(self.data[[col]])
                             encoders[col] = oe
                         elif enc_type == "OHE":
+
+                            if col not in self.data.columns:
+                                raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+                            
                             ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
                             transformed = ohe.fit_transform(self.data[[col]])
                             columns = ohe.get_feature_names_out([col])
@@ -149,6 +158,10 @@ class Preprocessing:
                             self.data = self.data.drop(columns=[col]).join(df_ohe)
                             encoders[col] = ohe
                         elif enc_type == "CV":
+                            
+                            if col not in self.data.columns:
+                                raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+
                             stopwords_combinadas = list(stopwords.words('spanish')) + list(stopwords.words('english'))
                             stopwords_combinadas = list(set(stopwords_combinadas))
                             cv = CountVectorizer(stop_words=stopwords_combinadas)
@@ -171,6 +184,11 @@ class Classification:
         X = data.drop(target, axis=1)
 
         self.xtrain, self.xtest, self.ytrain, self.ytest = train_test_split(X, Y, test_size=test_size, random_state=42)
+        self.explainer = lime.lime_tabular.LimeTabularExplainer(training_data = self.xtrain.values,
+                                                           feature_names = X.columns,
+                                                           class_names = Y.values,
+                                                           mode="classification")
+
         self.list_models = {
             'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
             'Decision Tree': DecisionTreeClassifier(random_state=42),
@@ -220,7 +238,11 @@ class Classification:
         
         return pd.DataFrame(records).sort_values(by='F1-Score', ascending=False).reset_index(drop=True)
     
-    def train(self, models_selected=[]):
+    def train(self, models_selected):
+        
+        if isinstance(models_selected, str):
+            models_selected = [models_selected]
+        
         estimators = []
 
         for name in models_selected:
@@ -251,6 +273,10 @@ class Classification:
         return pd.DataFrame([record])
 
     def predict(self, row):
+
+        if not hasattr(self, 'model') and getattr(self, 'model') is None:
+            raise ValueError("Se debe entrenar antes un modelo con el metodo train().")
+
         if isinstance(row, pd.Series):
             row = row.to_frame().T
 
@@ -263,6 +289,30 @@ class Classification:
         prob_values = [p * 100 for p in prob_values]
 
         return row_pred, pd.Series(prob_values).round(2)
+
+    def explain(self, row, num_features):
+
+        if getattr(self, 'model') is None:
+            raise ValueError("Se debe entrenar antes un modelo con el método train().")
+
+        if row < 0 or row >= len(self.xtest):
+            raise IndexError(f"El índice de fila {row} está fuera del rango permitido (0 a {len(self.xtest) - 1}).")
+    
+
+        exp = self.explainer.explain_instance(self.xtest.iloc[row], self.model.predict_proba, num_features=num_features)
+        exp_list = exp.as_list()
+        features_names = [f[0] for f in exp_list]
+        importance = [f[1] for f in exp_list]
+
+        plt.figure(figsize=(12, 6))
+        plt.barh(features_names, importance, color=["red" if x < 0 else "green" for x in importance])
+        plt.xlabel("Importancia")
+        plt.ylabel("Características")
+        plt.title("Explicación de LIME")
+        plt.yticks(fontsize=12)
+        plt.axvline(0, color="black", linewidth=1)
+        plt.tight_layout()
+        plt.show()
 
 class Counterfactual:
 

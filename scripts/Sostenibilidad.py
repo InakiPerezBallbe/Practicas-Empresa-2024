@@ -1,13 +1,13 @@
 from Analysis import Preprocessing
-from Analysis import Clasification
+from Analysis import Classification
 from Analysis import Counterfactual
 
 import pandas as pd
 
 #PREPROCESAMIENTO
-pp = Preprocessing("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/data/Sostenibilidad_tic.csv")
+pp = Preprocessing("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/data/Sostenibilidad_tic.csv", 'utf-8', ",")
 
-pp.delete(["Marca_Temporal"])
+pp.delete("Marca_Temporal")
 pp.standarize("Grado", "C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/standard/Grado.txt")
 pp.replace("Especialidad", "Matemáticas", "Grado", "ingeniería", "Grado en Ingeniería Matemática")
 pp.replace("Especialidad", "Otra", "Grado", "ingeniería", "Grado en Ingeniería (sin especificar)")
@@ -30,10 +30,12 @@ criterios.append(pp.data['Aprendizaje_Sostenibilidad_TIC'] == 'sí, definitivame
 criterios.append(pp.data['Compartir_Conocimiento_Sostenibilidad'] == 'sí, definitivamente.')
 
 pp.add("Conciencia_Ambiental", (sum(criterios) >= 8).astype(int))
-encoders = pp.encode("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/categorical_cols/Sostenibilidad.txt")
+encoders = pp.encode("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/encoding/Sostenibilidad.txt")
 
-c = Clasification(pp.data, "Conciencia_Ambiental", 0.2)
+c = Classification(pp.data, "Conciencia_Ambiental", 0.2)
 c.train(["K-Nearest Neighbors"])
+c.explain(0, 10)
+
 
 df = pd.DataFrame(pp.data.iloc[[0], pp.data.columns != "Conciencia_Ambiental"])
 df["Genero"] = 1

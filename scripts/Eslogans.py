@@ -21,6 +21,6 @@ for col, encoder in encoders.items():
 c = Classification(pp.data, "Sesgo")
 c.train(["XGBoost"])
 
-print(c.predict(series_cv))
+c.explain(0, 10)
 
 
