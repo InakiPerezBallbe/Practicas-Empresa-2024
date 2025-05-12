@@ -32,16 +32,17 @@ criterios.append(pp.data['Compartir_Conocimiento_Sostenibilidad'] == 'sí, defin
 pp.add("Conciencia_Ambiental", (sum(criterios) >= 8).astype(int))
 encoders = pp.encode("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/encoding/Sostenibilidad.txt")
 
-c = Classification(pp.data, "Conciencia_Ambiental", 0.2)
-c.train(["K-Nearest Neighbors"])
-c.explain(0, 10)
-
+c = Classification(pp.data, "Conciencia_Ambiental", encoders)
+c.train("AdaBoost")
 
 df = pd.DataFrame(pp.data.iloc[[0], pp.data.columns != "Conciencia_Ambiental"])
 df["Genero"] = 1
 df["Edad"] = 2.0
 
-df, prob = c.predict(df)
+c.explain(0, 19)
+""""""
 
-cf = Counterfactual(c.model, pp.data, "Conciencia_Ambiental")
-cf.counterfac(df, encoders)
+"""cf = Counterfactual(c.model, pp.data, "Conciencia_Ambiental")
+a, b = cf.counterfac(df, encoders)
+
+b.to_csv("b.csv")"""

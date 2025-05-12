@@ -173,22 +173,44 @@ class Preprocessing:
         except FileNotFoundError:
             raise FileNotFoundError(f"El archivo {link} no se encuentra.")
         except Exception as e:
-            raise ValueError(f"Hubo un error al procesar el archivo: {e}")
+            raise ValueError(f"Hubo un error al procesar el archivo: {e}")      
 
         return encoders
 
 class Classification:
 
-    def __init__(self, data, target, test_size=0.2):
+    def __init__(self, data, target, encoders, test_size=0.2):
         Y = data[target]
         X = data.drop(target, axis=1)
 
         self.xtrain, self.xtest, self.ytrain, self.ytest = train_test_split(X, Y, test_size=test_size, random_state=42)
+
+        categorical_feature_names = [col for col in encoders.keys() if col in X.columns]
+        categorical_feature_indices = [self.xtrain.columns.get_loc(col) for col in categorical_feature_names]
+
+        categorical_names = {}
+        for col in categorical_feature_names:
+            encoder = encoders[col]
+            if hasattr(encoder, "categories_"):
+                # Para OneHotEncoder o OrdinalEncoder
+                categories = encoder.categories_[0].tolist()
+            elif hasattr(encoder, "classes_"):
+                # Para LabelEncoder
+                categories = encoder.classes_.tolist()
+            else:
+                categories = []
+            
+            categorical_names[self.xtrain.columns.get_loc(col)] = categories
+
+
         self.explainer = lime.lime_tabular.LimeTabularExplainer(training_data = self.xtrain.values,
-                                                           feature_names = X.columns,
-                                                           class_names = Y.values,
+                                                           feature_names = X.columns.tolist(),
+                                                           class_names = Y.unique().tolist(),
+                                                           categorical_features=categorical_feature_indices,
+                                                           categorical_names=categorical_names,
                                                            mode="classification")
 
+        self.encoders = encoders
         self.list_models = {
             'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
             'Decision Tree': DecisionTreeClassifier(random_state=42),
@@ -297,9 +319,8 @@ class Classification:
 
         if row < 0 or row >= len(self.xtest):
             raise IndexError(f"El índice de fila {row} está fuera del rango permitido (0 a {len(self.xtest) - 1}).")
-    
 
-        exp = self.explainer.explain_instance(self.xtest.iloc[row], self.model.predict_proba, num_features=num_features)
+        exp = self.explainer.explain_instance(data_row=self.xtest.iloc[row], predict_fn=self.__lime_predict_fn, num_features=num_features)
         exp_list = exp.as_list()
         features_names = [f[0] for f in exp_list]
         importance = [f[1] for f in exp_list]
@@ -313,6 +334,14 @@ class Classification:
         plt.axvline(0, color="black", linewidth=1)
         plt.tight_layout()
         plt.show()
+
+    def __lime_predict_fn(self, x_ordinal_encoded_samples_np):
+        # Convertir el array NumPy a DataFrame usando los nombres de columna originales
+        x_df_lime_ordinal_encoded = pd.DataFrame(x_ordinal_encoded_samples_np, columns=self.xtrain.columns.tolist())
+        
+        # Crear una copia para invertir la codificación ordinal
+        probabilities = self.model.predict_proba(x_df_lime_ordinal_encoded.copy())
+        return probabilities
 
 class Counterfactual:
 
@@ -355,9 +384,9 @@ class Counterfactual:
         cf_data = self.__decode(cf_data, encoders)
         cf_row = self.__decode(row, encoders)
 
-        unchanged_columns = cf_data.columns[cf_data.eq(cf_row.iloc[0]).all()]
+        """unchanged_columns = cf_data.columns[cf_data.eq(cf_row.iloc[0]).all()]
         cf_data.drop(columns=unchanged_columns, inplace=True)
-        cf_row.drop(columns=unchanged_columns, inplace=True)
+        cf_row.drop(columns=unchanged_columns, inplace=True)"""
 
         print("Fila original:", cf_row)
         print("Contra-factuales generados:", cf_data)
@@ -366,7 +395,6 @@ class Counterfactual:
 
     def __decode(self, data, encoders):
         for col, encoder in encoders.items():
-            if col in data.columns:
                 if isinstance(encoder, LabelEncoder):
                     data[col] = data[col].astype('int64')
                     data[col] = encoder.inverse_transform(data[col])
@@ -376,8 +404,7 @@ class Counterfactual:
 
                 elif isinstance(encoder, OneHotEncoder):
                     ohe_cols = encoder.get_feature_names_out([col])
-                    transformed = encoder.inverse_transform(data[ohe_cols])
-                    data[col] = transformed.ravel()
+                    data[col] = encoder.inverse_transform(data[ohe_cols])
                     data = data.drop(columns=ohe_cols)
 
                 elif isinstance(encoder, CountVectorizer):
