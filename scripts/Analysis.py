@@ -18,8 +18,14 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTENC, SMOTE, SMOTEN
 import nltk
-nltk.download('stopwords')
-from nltk.corpus import stopwords
+try:
+    from nltk.corpus import stopwords
+    stopwords.words('spanish')  # o 'english', según idioma
+except LookupError:
+    nltk.download('stopwords')
+
+import warnings
+warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 class Preprocessing:
 
@@ -185,31 +191,6 @@ class Classification:
 
         self.xtrain, self.xtest, self.ytrain, self.ytest = train_test_split(X, Y, test_size=test_size, random_state=42)
 
-        categorical_feature_names = [col for col in encoders.keys() if col in X.columns]
-        categorical_feature_indices = [self.xtrain.columns.get_loc(col) for col in categorical_feature_names]
-
-        categorical_names = {}
-        for col in categorical_feature_names:
-            encoder = encoders[col]
-            if hasattr(encoder, "categories_"):
-                # Para OneHotEncoder o OrdinalEncoder
-                categories = encoder.categories_[0].tolist()
-            elif hasattr(encoder, "classes_"):
-                # Para LabelEncoder
-                categories = encoder.classes_.tolist()
-            else:
-                categories = []
-            
-            categorical_names[self.xtrain.columns.get_loc(col)] = categories
-
-
-        self.explainer = lime.lime_tabular.LimeTabularExplainer(training_data = self.xtrain.values,
-                                                           feature_names = X.columns.tolist(),
-                                                           class_names = Y.unique().tolist(),
-                                                           categorical_features=categorical_feature_indices,
-                                                           categorical_names=categorical_names,
-                                                           mode="classification")
-
         self.encoders = encoders
         self.list_models = {
             'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
@@ -312,7 +293,7 @@ class Classification:
 
         return row_pred, pd.Series(prob_values).round(2)
 
-    def explain(self, row, num_features):
+    def explain(self, row, num_features = None):
 
         if getattr(self, 'model') is None:
             raise ValueError("Se debe entrenar antes un modelo con el método train().")
@@ -320,7 +301,59 @@ class Classification:
         if row < 0 or row >= len(self.xtest):
             raise IndexError(f"El índice de fila {row} está fuera del rango permitido (0 a {len(self.xtest) - 1}).")
 
-        exp = self.explainer.explain_instance(data_row=self.xtest.iloc[row], predict_fn=self.__lime_predict_fn, num_features=num_features)
+        self.data_row = self.xtest.iloc[[row]].copy()
+        self.oe_encoders = {}
+
+        for col, encoder in self.encoders.items():
+            if isinstance(encoder, OneHotEncoder):
+                ohe_cols = encoder.get_feature_names_out([col])
+                self.data_row[col] = encoder.inverse_transform(self.data_row[ohe_cols])
+                self.data_row = self.data_row.drop(columns=ohe_cols)
+                self.oe_encoders[col] = OrdinalEncoder()
+                self.data_row[col] = self.oe_encoders[col].fit_transform(self.data_row[[col]])
+        
+        categorical_feature_names = [col for col in self.encoders.keys() if col != self.ytrain.name]
+        categorical_feature_indices = [self.data_row.columns.get_loc(col) for col in categorical_feature_names]
+
+        categorical_names = {}
+        for col in categorical_feature_names:
+            encoder = self.encoders[col]
+            if hasattr(encoder, "categories_"):
+                # Para OneHotEncoder o OrdinalEncoder
+                categories = encoder.categories_[0].tolist()
+            elif hasattr(encoder, "classes_"):
+                # Para LabelEncoder
+                categories = encoder.classes_.tolist()
+            else:
+                categories = []
+            
+            categorical_names[self.data_row.columns.get_loc(col)] = categories
+
+        self.xdata = self.xtrain.copy()
+        self.oe_encoders = {}
+
+        for col, encoder in self.encoders.items():
+            if isinstance(encoder, OneHotEncoder):
+                ohe_cols = encoder.get_feature_names_out([col])
+                self.xdata[col] = encoder.inverse_transform(self.xdata[ohe_cols])
+                self.xdata.drop(columns=ohe_cols, inplace = True)
+                self.oe_encoders[col] = OrdinalEncoder()
+                self.xdata[col] = self.oe_encoders[col].fit_transform(self.xdata[[col]])
+
+        self.explainer = lime.lime_tabular.LimeTabularExplainer(training_data = self.xdata.values,
+                                                    feature_names = self.data_row.columns.tolist(),
+                                                    class_names = self.ytrain.unique().tolist(),
+                                                    categorical_features=categorical_feature_indices,
+                                                    categorical_names=categorical_names,
+                                                    mode="classification",
+                                                    random_state=42)
+
+        if num_features is None:
+            num_features = len(self.xdata.columns.tolist())
+
+        data = self.data_row.iloc[0]
+
+        exp = self.explainer.explain_instance(data_row=data, predict_fn=self.__lime_predict_fn, num_features=num_features)
         exp_list = exp.as_list()
         features_names = [f[0] for f in exp_list]
         importance = [f[1] for f in exp_list]
@@ -337,15 +370,22 @@ class Classification:
 
     def __lime_predict_fn(self, x_ordinal_encoded_samples_np):
         # Convertir el array NumPy a DataFrame usando los nombres de columna originales
-        x_df_lime_ordinal_encoded = pd.DataFrame(x_ordinal_encoded_samples_np, columns=self.xtrain.columns.tolist())
-        
-        # Crear una copia para invertir la codificación ordinal
-        probabilities = self.model.predict_proba(x_df_lime_ordinal_encoded.copy())
-        return probabilities
+        data = pd.DataFrame(x_ordinal_encoded_samples_np, columns=self.data_row.columns.tolist())
 
+        for col, encoder in self.encoders.items():
+            if isinstance(encoder, OneHotEncoder):
+                data[col] = self.oe_encoders[col].inverse_transform(data[[col]]).ravel()
+                transformed = encoder.transform(data[[col]])
+                columns = encoder.get_feature_names_out([col])
+                df_ohe = pd.DataFrame(transformed, columns=columns, index=data.index)
+                data = data.drop(columns=[col]).join(df_ohe)
+
+    # Crear una copia para invertir la codificación ordinal
+        probabilities = self.model.predict_proba(data.copy())
+        return probabilities
 class Counterfactual:
 
-    def __init__(self, model, data, target, continuous_features=None, method="random"):
+    def __init__(self, model, data, target, continuous_features=None, method="kdtree"):
         if not hasattr(model, 'predict') or not callable(getattr(model, 'predict')):
             raise ValueError("El modelo debe tener un método 'predict'.")
         
@@ -368,14 +408,17 @@ class Counterfactual:
         self.data = data
         self.target = target
 
-    def counterfac(self, row, encoders):
+    def counterfac(self, row, encoders, target_value = None):
         if not isinstance(row, pd.DataFrame):
             raise ValueError("La fila debe ser un DataFrame.")
+
+        if target_value == None:
+            target_value = "opposite"
 
         cf_row = row.drop(columns=[self.target])
         
         try:
-            dice_exp = self.exp.generate_counterfactuals(cf_row, total_CFs=4, desired_class="opposite", random_seed=42)
+            dice_exp = self.exp.generate_counterfactuals(cf_row, total_CFs=4, desired_class=target_value)
         except Exception as e:
             raise ValueError(f"Error al generar contra-factuales: {e}")
         
@@ -384,9 +427,9 @@ class Counterfactual:
         cf_data = self.__decode(cf_data, encoders)
         cf_row = self.__decode(row, encoders)
 
-        """unchanged_columns = cf_data.columns[cf_data.eq(cf_row.iloc[0]).all()]
+        unchanged_columns = cf_data.columns[cf_data.eq(cf_row.iloc[0]).all()]
         cf_data.drop(columns=unchanged_columns, inplace=True)
-        cf_row.drop(columns=unchanged_columns, inplace=True)"""
+        cf_row.drop(columns=unchanged_columns, inplace=True)
 
         print("Fila original:", cf_row)
         print("Contra-factuales generados:", cf_data)

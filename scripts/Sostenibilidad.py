@@ -35,14 +35,25 @@ encoders = pp.encode("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/P
 c = Classification(pp.data, "Conciencia_Ambiental", encoders)
 c.train("AdaBoost")
 
+c.explain(0)
+
 df = pd.DataFrame(pp.data.iloc[[0], pp.data.columns != "Conciencia_Ambiental"])
 df["Genero"] = 1
 df["Edad"] = 2.0
+df["Impacto_Uso_Dispositivos"] = 1.0
 
-c.explain(0, 19)
-""""""
+
+
+a, b = c.predict(df)
+
+print(a)
+print(b)
+
+df = pd.DataFrame(pp.data.iloc[[0]])
+df["Genero"] = 1
+df["Edad"] = 2.0
 
 """cf = Counterfactual(c.model, pp.data, "Conciencia_Ambiental")
-a, b = cf.counterfac(df, encoders)
 
-b.to_csv("b.csv")"""
+a, b = cf.counterfac(df, encoders, 1)
+"""
