@@ -1,6 +1,6 @@
-from Analysis import Preprocessing
-from Analysis import Classification
-from Analysis import Counterfactual
+from scripts.Counterfactual import Preprocessing
+from scripts.Counterfactual import Classification
+from scripts.Counterfactual import Counterfactual
 
 import pandas as pd
 
@@ -35,7 +35,7 @@ encoders = pp.encode("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/P
 c = Classification(pp.data, "Conciencia_Ambiental", encoders)
 c.train("AdaBoost")
 
-c.explain(0)
+"""c.explain(0)
 
 df = pd.DataFrame(pp.data.iloc[[0], pp.data.columns != "Conciencia_Ambiental"])
 df["Genero"] = 1
@@ -47,13 +47,12 @@ df["Impacto_Uso_Dispositivos"] = 1.0
 a, b = c.predict(df)
 
 print(a)
-print(b)
+print(b)"""
 
 df = pd.DataFrame(pp.data.iloc[[0]])
 df["Genero"] = 1
 df["Edad"] = 2.0
 
-"""cf = Counterfactual(c.model, pp.data, "Conciencia_Ambiental")
+cf = Counterfactual(c.model, pp.data, "Conciencia_Ambiental")
 
 a, b = cf.counterfac(df, encoders, 1)
-"""

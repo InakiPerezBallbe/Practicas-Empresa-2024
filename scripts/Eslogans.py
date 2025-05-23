@@ -1,4 +1,4 @@
-from Analysis import Preprocessing,  Classification
+from scripts.Counterfactual import Preprocessing,  Classification
 from sklearn.feature_extraction.text import CountVectorizer
 import pandas as pd
 
