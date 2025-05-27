@@ -16,3 +16,6 @@ Durante la siguiente semana, se seguirán solucionando problemas volviendo a la 
 
 <u>Semana 4 (12/05 - 16/05)</u>
 Esta semana se resolvió los problemas propuestos la semana pasada. Se cambiaron pequeños detalles que se recomendó por parte de la tutora de prácticas, Consolación Gil. Además de esto, se hizo un estudio de LIME con mayor atención debido a que en la implementación del código hubo que revisar y cambiar lo anteriormente programado. Al terminar, empecé a documentar todo lo hecho hasta ahora para no tener que hacer todo esto después, ya que es bastante hasta ahora. Lo que se documentó hasta ahora fue un tercio de lo que se ha hecho hasta ahora.
+
+<u>Semana 5 (19/05 - 23/05)</u>
+Durante esta semana solo se ha completado la documentación y se empezó la investigación de SHAP. No se ha hecho mucha más que eso debio a no invertir la misma cantidad de horas (+5 horas diarias por voluntad propia).

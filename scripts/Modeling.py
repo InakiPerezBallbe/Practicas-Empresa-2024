@@ -1,7 +1,4 @@
 import pandas as pd
-import lime
-import lime.lime_tabular
-import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
@@ -11,15 +8,14 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import train_test_split
 import warnings
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
-class Classification:
+class Modeling:
 
-    def __init__(self, data, target, encoders, test_size=0.2):
+    def __init__(self, data, target, test_size=0.2):
         # Este es el método constructor de la clase. Se llama automáticamente
         # cuando creas una nueva instancia (objeto) de esta clase. Los argumentos que recibe son:
         # - 'self': Es una referencia a la instancia de la clase que se está creando.
@@ -28,9 +24,6 @@ class Classification:
         #           (características y la columna objetivo).
         # - 'target': Un string con el nombre de la columna en 'data' que se usará como
         #             la variable objetivo (la que se quiere predecir).
-        # - 'encoders': Un diccionario que se espera contenga los codificadores ajustados
-        #               (por ejemplo, el resultado del método 'encode' que vimos antes).
-        #               Esto es útil si necesitas decodificar o aplicar transformaciones inversas.
         # - 'test_size': Un valor flotante (opcional, con valor predeterminado de 0.2) que determina
         #                la proporción del conjunto de datos que se reservará para el conjunto de prueba.
         #                0.2 significa que el 20% de los datos serán para prueba y el 80% para entrenamiento.
@@ -57,10 +50,6 @@ class Classification:
         # Estos se guardan como atributos de la instancia para que otros métodos de la clase puedan usarlos.
         self.xtrain, self.xtest, self.ytrain, self.ytest = train_test_split(X, Y, test_size=test_size, random_state=42)
 
-        # 3. Almacenar los codificadores:
-        # Guarda el diccionario de 'encoders' (que se pasó como argumento) como un atributo de la instancia.
-        self.encoders = encoders
-        
         # 4. Definir una lista de modelos de clasificación:
         # 'self.list_models' es un diccionario donde las claves son nombres descriptivos
         # de los modelos y los valores son instancias de los clasificadores de scikit-learn,
@@ -249,7 +238,7 @@ class Classification:
         # si se quisieran combinar o comparar resultados.
         return pd.DataFrame([record])
 
-    def predict(self, row):
+    def classify(self, row):
         # Este método tiene como objetivo tomar una o más filas de datos de entrada,
         # utilizar un modelo previamente entrenado para hacer predicciones,
         # y devolver la entrada original junto con la predicción y la probabilidad de esa predicción.
@@ -330,95 +319,3 @@ class Classification:
         prob_series = pd.Series(prob_values_percent, index=current_row_index, name="Predicted_Probability_%").round(2)
 
         return row_pred, prob_series
-
-    def explain(self, row, num_features = None):
-
-        if getattr(self, 'model') is None:
-            raise ValueError("Se debe entrenar antes un modelo con el método train().")
-
-        if row < 0 or row >= len(self.xtest):
-            raise IndexError(f"El índice de fila {row} está fuera del rango permitido (0 a {len(self.xtest) - 1}).")
-
-        self.data_row = self.xtest.iloc[[row]].copy()
-        self.oe_encoders = {}
-
-        for col, encoder in self.encoders.items():
-            if isinstance(encoder, OneHotEncoder):
-                ohe_cols = encoder.get_feature_names_out([col])
-                self.data_row[col] = encoder.inverse_transform(self.data_row[ohe_cols])
-                self.data_row = self.data_row.drop(columns=ohe_cols)
-                self.oe_encoders[col] = OrdinalEncoder()
-                self.data_row[col] = self.oe_encoders[col].fit_transform(self.data_row[[col]])
-        
-        categorical_feature_names = [col for col in self.encoders.keys() if col != self.ytrain.name]
-        categorical_feature_indices = [self.data_row.columns.get_loc(col) for col in categorical_feature_names]
-
-        categorical_names = {}
-        for col in categorical_feature_names:
-            encoder = self.encoders[col]
-            if hasattr(encoder, "categories_"):
-                # Para OneHotEncoder o OrdinalEncoder
-                categories = encoder.categories_[0].tolist()
-            elif hasattr(encoder, "classes_"):
-                # Para LabelEncoder
-                categories = encoder.classes_.tolist()
-            else:
-                categories = []
-            
-            categorical_names[self.data_row.columns.get_loc(col)] = categories
-
-        self.xdata = self.xtrain.copy()
-        self.oe_encoders = {}
-
-        for col, encoder in self.encoders.items():
-            if isinstance(encoder, OneHotEncoder):
-                ohe_cols = encoder.get_feature_names_out([col])
-                self.xdata[col] = encoder.inverse_transform(self.xdata[ohe_cols])
-                self.xdata.drop(columns=ohe_cols, inplace = True)
-                self.oe_encoders[col] = OrdinalEncoder()
-                self.xdata[col] = self.oe_encoders[col].fit_transform(self.xdata[[col]])
-
-        self.explainer = lime.lime_tabular.LimeTabularExplainer(training_data = self.xdata.values,
-                                                    feature_names = self.data_row.columns.tolist(),
-                                                    class_names = self.ytrain.unique().tolist(),
-                                                    categorical_features=categorical_feature_indices,
-                                                    categorical_names=categorical_names,
-                                                    mode="classification",
-                                                    random_state=42)
-
-        if num_features is None:
-            num_features = len(self.xdata.columns.tolist())
-
-        data = self.data_row.iloc[0]
-
-        exp = self.explainer.explain_instance(data_row=data, predict_fn=self.__lime_predict_fn, num_features=num_features)
-        exp_list = exp.as_list()
-        features_names = [f[0] for f in exp_list]
-        importance = [f[1] for f in exp_list]
-
-        plt.figure(figsize=(12, 6))
-        plt.barh(features_names, importance, color=["red" if x < 0 else "green" for x in importance])
-        plt.xlabel("Importancia")
-        plt.ylabel("Características")
-        plt.title("Explicación de LIME")
-        plt.yticks(fontsize=12)
-        plt.axvline(0, color="black", linewidth=1)
-        plt.tight_layout()
-        plt.show()
-
-    def __lime_predict_fn(self, x_ordinal_encoded_samples_np):
-        # Convertir el array NumPy a DataFrame usando los nombres de columna originales
-        data = pd.DataFrame(x_ordinal_encoded_samples_np, columns=self.data_row.columns.tolist())
-
-        for col, encoder in self.encoders.items():
-            if isinstance(encoder, OneHotEncoder):
-                data[col] = self.oe_encoders[col].inverse_transform(data[[col]]).ravel()
-                transformed = encoder.transform(data[[col]])
-                columns = encoder.get_feature_names_out([col])
-                df_ohe = pd.DataFrame(transformed, columns=columns, index=data.index)
-                data = data.drop(columns=[col]).join(df_ohe)
-
-        # Crear una copia para invertir la codificación ordinal
-        probabilities = self.model.predict_proba(data.copy())
-        return probabilities
-

@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 
 # Cargar datos
 #url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00320/student.zip"
-data = pd.read_csv("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/student-mat.csv", sep=";")
+data = pd.read_csv("C:/Users/Usuario/OneDrive/Desktop/Practicas-Empresa-2024/Practicas-Empresa-2024/data/student-mat.csv", sep=";")
 
 # Selección de características relevantes
 features = ["studytime", "failures", "absences", "G1", "G2"]
