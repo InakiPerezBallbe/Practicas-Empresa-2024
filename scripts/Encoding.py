@@ -12,8 +12,9 @@ except LookupError:
 import warnings
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
-def encode(df, link) -> Tuple[pd.DataFrame, dict]:
+def encode(df: pd.DataFrame, link: str) -> Tuple[pd.DataFrame, dict]:
         # Este método toma dos argumentos:
+        # - 'df': El marco de datos que se va a codificar.
         # - 'link': Una cadena de texto (string) que es la ruta al archivo de configuración
         #           que especifica qué columnas codificar y cómo.
 
@@ -160,13 +161,13 @@ def encode(df, link) -> Tuple[pd.DataFrame, dict]:
         # para, por ejemplo, aplicar transformaciones inversas (decodificar) más tarde.
         return df_copy, encoders
 
-def decode(df, encoders, target) -> pd.DataFrame:
-    # Este es un método "privado" de la clase. Su objetivo es decodificar las columnas del DataFrame 'data'
+def decode(df: pd.DataFrame, encoders: dict, target: str) -> pd.DataFrame:
+    # Su objetivo es decodificar las columnas del DataFrame 'df'
     # utilizando los codificadores proporcionados. Argumentos:
-    # - 'self': Referencia a la instancia de la clase.
-    # - 'data': Un DataFrame de pandas que contiene los datos codificados que se van a decodificar.
+    # - 'df': Un DataFrame de pandas que contiene los datos codificados que se van a decodificar.
     # - 'encoders': Un diccionario donde las claves son los nombres de las columnas originales
     #               y los valores son las instancias de los codificadores ajustados que se usaron para codificar.
+    # - 'target': La columna objetivo a la que se le cambiará la posición al final para su posterior muetreo.
 
     df_copy = df.copy()
 
@@ -176,7 +177,7 @@ def decode(df, encoders, target) -> pd.DataFrame:
 
         # --- LabelEncoder ---
         if isinstance(encoder, LabelEncoder):
-            # Si la columna 'col' existe en el DataFrame 'data'.
+            # Si la columna 'col' existe en el DataFrame 'df_copy'.
             if col in df_copy.columns:
                 # LabelEncoder.inverse_transform espera valores numéricos (enteros).
                 # Se asegura de que la columna sea de tipo int64 antes de decodificar.
@@ -190,7 +191,7 @@ def decode(df, encoders, target) -> pd.DataFrame:
 
         # --- OrdinalEncoder ---
         elif isinstance(encoder, OrdinalEncoder):
-            # Si la columna 'col' existe en el DataFrame 'data'.
+            # Si la columna 'col' existe en el DataFrame 'df_copy'.
             if col in df_copy.columns:
                 # OrdinalEncoder.inverse_transform espera una entrada 2D (como un DataFrame de una columna).
                 # El resultado también es 2D, por lo que .ravel() lo convierte a 1D para asignarlo
@@ -206,7 +207,7 @@ def decode(df, encoders, target) -> pd.DataFrame:
             # para esta característica original 'col'.
             ohe_cols = encoder.get_feature_names_out([col])
             
-            # Comprobar si todas las columnas OHE necesarias existen en el DataFrame 'data'.
+            # Comprobar si todas las columnas OHE necesarias existen en el DataFrame 'df_copy'.
             if all(c in df_copy.columns for c in ohe_cols):
                 # OneHotEncoder.inverse_transform espera una entrada 2D que contenga
                 # las columnas codificadas en one-hot.
@@ -227,23 +228,23 @@ def decode(df, encoders, target) -> pd.DataFrame:
         # --- CountVectorizer ---
         elif isinstance(encoder, CountVectorizer):
             # 'col' es el nombre de la columna de texto original que fue vectorizada.
-            # 'data' en este punto debería contener las columnas generadas por CountVectorizer (la matriz término-documento).
+            # 'df_copy' en este punto debería contener las columnas generadas por CountVectorizer (la matriz término-documento).
             # Sin embargo, el bucle itera sobre 'encoders' donde la clave 'col' es el nombre de la columna *original*.
-            # Esto implica que 'data' debería ser la matriz de características vectorizadas, y 'col'
+            # Esto implica que 'df_copy' debería ser la matriz de características vectorizadas, y 'col'
             # el nombre que se le quiere dar a la columna de texto "reconstruida".
 
             # inverse_transform(X) toma una matriz término-documento X
             # y devuelve una lista de arrays, donde cada array contiene los tokens
             # presentes en el documento correspondiente.
             
-            # El DataFrame 'data' que se pasa a este método debe ser la matriz de conteo
+            # El DataFrame 'df_copy' que se pasa a este método debe ser la matriz de conteo
             # si queremos aplicar inverse_transform. Las siguientes líneas intentan una
             # reconstrucción que probablemente no sea la deseada para revertir CountVectorizer a una columna de texto original.
             
             # Obtener los nombres de todas las características que generó el CountVectorizer
             cv_feature_names = encoder.get_feature_names_out()
 
-            # Comprobar si todas las columnas del CV existen en el DataFrame 'data'
+            # Comprobar si todas las columnas del CV existen en el DataFrame 'df_copy'
             if all(c in df_copy.columns for c in cv_feature_names):
                 # 'transformed' será una lista de arrays de strings (tokens)
                 transformed_tokens_list = encoder.inverse_transform(df_copy[cv_feature_names])
@@ -261,7 +262,7 @@ def decode(df, encoders, target) -> pd.DataFrame:
                 print(f"Advertencia: Faltan columnas de CountVectorizer ({missing_cv_cols}) para la característica original '{col}'. No se puede decodificar.")
 
     # --- Mover la columna objetivo al final ---
-    # Obtiene una lista de todos los nombres de columna actuales en el DataFrame 'data'.
+    # Obtiene una lista de todos los nombres de columna actuales en el DataFrame 'df_copy'.
     cols = list(df_copy.columns)
     # Comprueba si la columna objetivo existe en el DataFrame.
     if target in cols:
@@ -272,8 +273,8 @@ def decode(df, encoders, target) -> pd.DataFrame:
         target_idx = cols.index(target)
         cols[target_idx], cols[-1] = cols[-1], cols[target_idx]
         
-        # Reordena el DataFrame 'data' según el nuevo orden de columnas en 'cols'.
+        # Reordena el DataFrame 'df_copy' según el nuevo orden de columnas en 'cols'.
         df_copy = df_copy[cols]
 
-    # Devuelve el DataFrame 'data' con las columnas decodificadas y reordenadas.
+    # Devuelve el DataFrame 'df_copy' con las columnas decodificadas y reordenadas.
     return df_copy

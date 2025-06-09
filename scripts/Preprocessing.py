@@ -1,7 +1,7 @@
 import pandas as pd
 from imblearn.over_sampling import SMOTENC, SMOTE, SMOTEN
 
-def readDataframe(link, encoding='utf-8', delimiter=';') -> pd.DataFrame:
+def readDataframe(link: str, encoding='utf-8', delimiter=';') -> pd.DataFrame:
     # - 'link': Se espera que sea una cadena de texto (string) que contenga la ruta
     #           o URL al archivo CSV que se va a leer.
     # - 'encoding': El tipo de codificación del archivo CSV (ej: 'utf-8', 'latin1'). Por defecto es 'utf-8'
@@ -53,6 +53,7 @@ def readDataframe(link, encoding='utf-8', delimiter=';') -> pd.DataFrame:
 
 def standarize (df: pd.DataFrame, column_name, link) -> pd.DataFrame:
     # Este método toma tres argumentos:
+    # - 'df': El Dataframe de la cual se va a estandarizar una columna.
     # - 'column_name': El nombre de la columna en 'df' cuyos valores se van a estandarizar.
     # - 'link': La ruta al archivo de texto que contiene los mapeos de estandarización.
     #           Se espera que este archivo tenga un formato como:
@@ -132,8 +133,9 @@ def standarize (df: pd.DataFrame, column_name, link) -> pd.DataFrame:
     
     return df_copy
 
-def oversample(df, target) -> pd.DataFrame:
+def oversample(df: pd.DataFrame, target: str) -> pd.DataFrame:
     # Este método toma dos argumentos:
+    # - 'df': El marco de datos que se va a sobremuestrear.
     # - 'target': Un string con el nombre de la columna en 'df' que representa
     #             la variable objetivo (la que se quiere predecir y está desbalanceada).
 

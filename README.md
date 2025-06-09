@@ -19,3 +19,9 @@ Esta semana se resolvió los problemas propuestos la semana pasada. Se cambiaron
 
 <u>Semana 5 (19/05 - 23/05)</u>
 Durante esta semana solo se ha completado la documentación y se empezó la investigación de SHAP. No se ha hecho mucha más que eso debio a no invertir la misma cantidad de horas (+5 horas diarias por voluntad propia).
+
+<u>Semana 6 (26/05 - 30/05)</u>
+Se terminó la investigación de SHAP, concluyendo que en ciertos casos puede ser más útil que LIME. LIME ofrece un análisis de importancia de cada atributo de un marco de datos de manera local, es decir, por cada instancia, sin embargo, SHAP puede hacer ese análisis tanto local como. Además, el proceso de análisis de LIME es por regresión lineal a diferencia de SHAP, que es por una fórmula matemática a través de los valores Shaply. Se implementó dos metodos más en el código para poder hacer los análisis necesarios posteriormente. La siguiente tarea fue empezar una aplicación para hacer el proceso de preprocesamiento, explicación y razonamiento contrafactual. La cual se hará con Python y las librerias tkinter o ttbootstrap.
+
+<u>Semana 7 (02/06 - 06/06)</u>
+Debido a las complicaciones que se plantearon en la app y la larga duración del desarrollo de esta hasta su finalización, se pospondrá a la última semana de las prácticas si hay tiempo y si se da la ocasión. Aún así se ha llegado a hacer la parte de preprocesamiento y muestreo de datos. Se siguió entonces con el desarrollo e investigación de los tipos de modelos y los mejores modelos para, en este caso, la base de datos del proyecto de sostenibilidad. Para ello se cambió uno de los archivos para poder ver las métricas de los modelos dependiendo de que tipo sea (Arboles de decisión, Naive Bayes o Redes Neuronales)
