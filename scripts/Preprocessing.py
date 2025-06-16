@@ -1,54 +1,66 @@
 import pandas as pd
 from imblearn.over_sampling import SMOTENC, SMOTE, SMOTEN
 
-def readDataframe(link: str, encoding='utf-8', delimiter=';') -> pd.DataFrame:
-    # - 'link': Se espera que sea una cadena de texto (string) que contenga la ruta
-    #           o URL al archivo CSV que se va a leer.
-    # - 'encoding': El tipo de codificación del archivo CSV (ej: 'utf-8', 'latin1'). Por defecto es 'utf-8'
-    # - 'delimiter': El carácter que separa los valores en el archivo CSV (ej: ',', ';', '\t'). Por defecto es ';'
+# - link: str -> Se espera un string.
+# - encoding: str = 'utf-8' -> Se espera un string, con 'utf-8' como valor por defecto.
+# - delimiter: str = ';' -> Se espera un string, con ';' como valor por defecto.
+# - -> pd.DataFrame: La función devolverá un DataFrame de pandas.
+def readDataframe(link: str, encoding='utf--8', delimiter=';') -> pd.DataFrame:
+    """
+    Lee un archivo CSV desde una ruta o URL, realiza una limpieza básica de los datos
+    y devuelve el resultado como un DataFrame de pandas.
 
-    # Crea un diccionario llamado 'read_kwargs' para almacenar los argumentos
-    # que se pasarán a la función pd.read_csv.
-    # Inicialmente, contiene 'encoding' y 'delimiter' con los valores recibidos.
+    Args:
+        link (str): La ruta o URL al archivo CSV.
+        encoding (str, optional): La codificación del archivo. Por defecto es 'utf-8'.
+        delimiter (str, optional): El delimitador de columnas. Por defecto es ';'.
+
+    Returns:
+        pd.DataFrame: Un DataFrame de pandas con los datos cargados y preprocesados.
+    """
+    
+    # --- Manejo de Argumentos de Lectura ---
+    # Se crea un diccionario para pasar los argumentos opcionales a pd.read_csv.
+    # Esto permite manejar los valores por defecto de una manera limpia.
     read_kwargs = {'encoding': encoding, 'delimiter': delimiter}
 
-    # Esta línea filtra el diccionario 'read_kwargs'.
-    # Crea un nuevo diccionario que solo incluye las claves (k) y valores (v)
-    # del 'read_kwargs' original si el valor (v) no es None.
-    # Esto es útil para que, si por ejemplo 'encoding' o 'delimiter' no se especifican
-    # (son None), no se pasen como argumentos explícitos con valor None a pd.read_csv,
-    # permitiendo que pd.read_csv use sus propios valores predeterminados en esos casos.
+    # Se filtra el diccionario para eliminar cualquier argumento que tenga un valor de None.
+    # Si, por ejemplo, se llamara a la función con encoding=None, esta línea evitaría
+    # pasar `encoding=None` a pd.read_csv, permitiendo que pandas use su propio
+    # valor predeterminado en su lugar.
     read_kwargs = {k: v for k, v in read_kwargs.items() if v is not None}
 
-    # Lee el archivo CSV utilizando la función read_csv de la biblioteca pandas.
-    # - 'link': Es el primer argumento, la ruta o URL del archivo.
-    # - '**read_kwargs': Desempaqueta el diccionario 'read_kwargs'.
+    # --- Carga de Datos ---
+    # Se lee el archivo CSV usando la función de pandas.
+    # `**read_kwargs` desempaqueta el diccionario, pasando sus claves y valores
+    # como argumentos de palabra clave. Es equivalente a llamar a:
+    # pd.read_csv(link, encoding='utf-8', delimiter=';')
     df = pd.read_csv(link, **read_kwargs)
     
-    # Este bucle itera sobre todas las columnas del DataFrame 'data'
-    # que son de tipo 'object' o 'string'. Estos tipos de datos suelen usarse
-    # en pandas para almacenar texto.
+    # --- Limpieza de Columnas de Texto ---
+    # Se itera sobre todas las columnas del DataFrame que son de tipo 'object' o 'string'.
+    # Estos tipos son los que pandas usa comúnmente para almacenar texto.
     for col in df.select_dtypes(include=['object', 'string']):
-        # Para cada una de estas columnas ('col'):
-        # 1. .astype(str): Se asegura de que todos los valores en la columna sean tratados como strings.
-        #    Esto es útil si la columna tiene tipos mixtos o valores NaN que podrían causar problemas
-        #    con las operaciones de string.
-        # 2. .str.strip(): Elimina los espacios en blanco al principio y al final de cada string
-        #    en la columna.
-        # 3. .str.lower(): Convierte todos los caracteres de cada string en la columna a minúsculas.
+        # Se aplica una secuencia de operaciones de limpieza a cada columna de texto:
+        # 1. .astype(str): Se asegura de que todos los valores sean tratados como strings.
+        #    Esto previene errores si la columna contiene una mezcla de tipos (ej. números y texto).
+        # 2. .str.strip(): Elimina los espacios en blanco al principio y al final de cada string.
+        # 3. .str.lower(): Convierte todo el texto a minúsculas para estandarizarlo.
         df[col] = df[col].astype(str).str.strip().str.lower()
 
+    # --- Conversión de Tipos Numéricos ---
+    # Se itera sobre todas las columnas del DataFrame, independientemente de su tipo.
     for col in df.columns:
-        # Para cada columna ('col'):
-        # Intenta convertir los valores de la columna a un tipo numérico (float o int)
-        # usando pd.to_numeric.
-        # - 'errors='ignore'': Si un valor en la columna no puede convertirse a número,
-        #   esta opción hace que pd.to_numeric no lance un error, sino que deje el valor
-        #   original sin convertir. Las columnas que sí puedan convertirse completamente
-        #   a numéricas cambiarán su tipo de dato (dtype); las que no, permanecerán
-        #   como tipo 'object' o el tipo que tenían.
+        # Se intenta convertir cada columna a un tipo de dato numérico (entero o flotante).
+        # `pd.to_numeric` es la función de pandas para esta tarea.
+        # - `errors='ignore'`: Este es un parámetro crucial. Si pandas encuentra un valor
+        #   en la columna que no puede convertir a número (por ejemplo, "hola"),
+        #   no lanzará un error. En su lugar, dejará la columna como estaba (generalmente tipo 'object').
+        # Si todos los valores de una columna pueden convertirse, el tipo de dato de la columna
+        # (dtype) cambiará a int64 o float64.
         df[col] = pd.to_numeric(df[col], errors='ignore')
     
+    # Se devuelve el DataFrame limpio y con los tipos de datos ajustados.
     return df
 
 def standarize (df: pd.DataFrame, column_name, link) -> pd.DataFrame:
