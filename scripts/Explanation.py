@@ -5,6 +5,7 @@ import lime
 import lime.lime_tabular
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, LabelEncoder
+#from tabulate import tabulate
 
 def explainLime(df: pd.DataFrame, model, row: int, encoders: dict, target: str, num_features: int = None, class_index: int = None):
     # --- 1. Validación de Entrada y Preparación de Datos ---
@@ -311,29 +312,33 @@ def explainShapGlobal(df: pd.DataFrame, model, encoders: dict, target: str, clas
     # Se crea un diccionario para mapear las columnas codificadas a sus nombres originales
     col_mapping = {}
 
-    for col, encoder in encoders.items():
-        if isinstance(encoder, OneHotEncoder):
-            # Para OneHotEncoder, se obtienen los nombres codificados (e.g., "sexo_m", "sexo_f") y se asignan al nombre original (e.g., "sexo")
-            ohe_cols = encoder.get_feature_names_out([col])
-            for c in ohe_cols:
-                col_mapping[c] = col
-        else:
-            # Para LabelEncoder u OrdinalEncoder, la columna codificada conserva su nombre
-            col_mapping[col] = col
+    if encoders is not None:
+        col_mapping = {}
 
-    # Para cualquier otra columna no codificada, se conserva el nombre tal cual
-    for col in shap_df.columns:
-        if col not in col_mapping:
-            col_mapping[col] = col
+        for col, encoder in encoders.items():
+            if isinstance(encoder, OneHotEncoder):
+                ohe_cols = encoder.get_feature_names_out([col])
+                for c in ohe_cols:
+                    col_mapping[c] = col
+            else:
+                col_mapping[col] = col
 
-    # Se renombran las columnas del DataFrame SHAP con sus nombres originales
-    shap_df.columns = [col_mapping[c] for c in shap_df.columns]
+        for col in shap_df.columns:
+            if col not in col_mapping:
+                col_mapping[col] = col
 
-    # Se agrupan los valores SHAP por columna original y se suman (en caso de OHE con varias columnas)
-    grouped = shap_df.groupby(shap_df.columns, axis=1).sum()
+        # Renombrar columnas codificadas a su nombre original
+        shap_df.columns = [col_mapping[c] for c in shap_df.columns]
+        grouped = shap_df.groupby(shap_df.columns, axis=1).sum()
+    else:
+        # No hay codificadores, se usa directamente
+        grouped = shap_df
 
     # Se calcula la importancia media por columna (valor absoluto promedio)
     mean_importance = grouped.mean().sort_values(ascending=False)
+
+    #tabla_shap = [(feature, round(importance, 4)) for feature, importance in mean_importance.items()]
+    #print(tabulate(tabla_shap, headers=["Característica", "Importancia SHAP media"], tablefmt="fancy_grid"))
 
     # Se genera un gráfico de barras horizontales con las importancias ordenadas
     plt.figure(figsize=(10, max(5, 0.4 * len(mean_importance))))

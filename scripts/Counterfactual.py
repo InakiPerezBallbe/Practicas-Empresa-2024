@@ -21,12 +21,15 @@ def generate_counterfactuals(model, df: pd.DataFrame, target: str, row: pd.DataF
     
     # Inicializar los objetos de DiCE: datos y modelo
     try:
+        # Detectar automáticamente las columnas categóricas por tipo 'object' o 'category'
+        categorical_columns = df.select_dtypes(include=["object", "category"]).columns.tolist()
+
         # Se construye la interfaz de datos para DiCE
-        d_data = dice_ml.Data(dataframe=df, continuous_features=continuous_features, outcome_name=target)
+        d_data = dice_ml.Data(dataframe=df, continuous_features=continuous_features, outcome_name=target, categorical_features=categorical_columns)
         
         # Se construye la interfaz del modelo ya entrenado
-        d_model = dice_ml.Model(model=model, backend="sklearn")
-        
+        d_model = dice_ml.Model(model=model, backend="sklearn", model_type="classifier")
+
         # Se crea el explicador DiCE con el método especificado (por defecto "kdtree")
         explainer = dice_ml.Dice(d_data, d_model, method=method)
     except Exception as e:
@@ -61,5 +64,33 @@ def generate_counterfactuals(model, df: pd.DataFrame, target: str, row: pd.DataF
     print("\n[Contrafactuales generados]:")
     print(cf_decoded)
 
+    priority_order = {}
+
+    # Extraer orden de cada OrdinalEncoder si existe en los encoders
+    for col, encoder in encoders.items():
+        if hasattr(encoder, "categories_"):  # Verifica que sea un OrdinalEncoder entrenado
+            # Extraer lista de categorías ordenadas
+            categories = encoder.categories_
+            if isinstance(categories, list) and len(categories) == 1:
+                priority_order[col] = list(categories[0])
+            elif isinstance(categories, list) and len(categories) == len(df[[col]].T):
+                priority_order[col] = list(categories[df.columns.get_loc(col)])
+
+    for i, (_, cf_row) in enumerate(cf_decoded.iterrows()):
+        print(f"\n📎 Contrafactual {i+1}:")
+        for col in changed:
+            original_val = original_features.iloc[0][col]
+            cf_val = cf_row[col]
+
+            if original_val != cf_val:
+                order = priority_order.get(col)
+                if order and order.index(cf_val) >= order.index(original_val):
+                    print(f"- Cambiar '{col}' de '{original_val}' a '{cf_val}' para mejorar el resultado.")
+                else:
+                    print(f"- Cambiar '{col}' de '{original_val}' a '{cf_val}'.")
+
     # Retornar el conjunto de características modificadas originales y las nuevas generadas
     return original_features, cf_decoded
+
+"""elif order:
+    print(f"- ⚠️ No se recomienda bajar el nivel en '{col}' de '{original_val}' a '{cf_val}'.")"""

@@ -25,3 +25,10 @@ Se terminó la investigación de SHAP, concluyendo que en ciertos casos puede se
 
 <u>Semana 7 (02/06 - 06/06)</u>
 Debido a las complicaciones que se plantearon en la app y la larga duración del desarrollo de esta hasta su finalización, se pospondrá a la última semana de las prácticas si hay tiempo y si se da la ocasión. Aún así se ha llegado a hacer la parte de preprocesamiento y muestreo de datos. Se siguió entonces con el desarrollo e investigación de los tipos de modelos y los mejores modelos para, en este caso, la base de datos del proyecto de sostenibilidad. Para ello se cambió uno de los archivos para poder ver las métricas de los modelos dependiendo de que tipo sea (Arboles de decisión, Naive Bayes o Redes Neuronales)
+
+<u>Semana 8 (09/06 - 13/06)</u>
+Se terminó de cambiar el archivo que se mencionó la semana pasada (Modeling.py) para que se pudiese seleccionar un tipo de modelo de datos (Lineal, árboles de decisión, Naive Bayes, SVC o Redes Neuronales) y después seleccionar entre todos los posibles modelos que hay en Python del tipo seleccionado anteriormente. Las métricas del modelo se calcula con valores cruzados separando el marco de datos en fragmentos y utilizando una distinta combinación de estos como entrenamiento y prueba para una mayor precisión de las métricas. También se hizo el estudio de un cambio en el umbral de criterios mínimos para verificar que el umbral puesto por la anterior alumna en prácticas, Ainhoa, ya que este crea muy pocas muestras de clase positiva del atributo a estudiar. Por último, se hizo un estudio del mejor modelo de datos para 6 casos de marco de datos, siendo estos:
+- Umbral mínimo 6 con y sin sobremuestreo
+- Umbral mínimo 7 con y sin sobremuestreo
+- Umbral mínimo 8 con y sin sobremuestreo
+Y se estudió la influencia del modelo en las librerias SHAP y DiCE.

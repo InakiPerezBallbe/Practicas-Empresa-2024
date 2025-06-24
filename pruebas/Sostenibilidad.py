@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from scripts.Preprocessing import readDataframe, standarize, oversample
 from scripts.Encoding import encode
 from scripts.Modeling import chooseModel
-from scripts.Explanation import explainLime, explainShapLocal, explainShapGlobal
+from scripts.Explanation import explainShapGlobal
 from scripts.Counterfactual import generate_counterfactuals
 import pandas as pd
 
@@ -15,7 +15,6 @@ df = standarize(df, "Grado", "./standard/Grado.txt")
 df.loc[(df["Especialidad"] == "matemáticas") &
          (df["Grado"].str.lower() == "ingeniería"), "Grado"] = "grado en ingeniería matemática"
 
-# Crear una lista de condiciones comprometidas
 criterios = []
 criterios.append(df['Frecuencia_Uso_Dispositivos'].isin(['nunca', 'ocasionalmente']))
 criterios.append(df['Redes_Sociales_Diario'].isin(['nunca', 'ocasionalmente']))
@@ -32,20 +31,14 @@ criterios.append(df['Reducir_Stickers_Gifs'] == 'sí, estoy dispuesto/a.')
 criterios.append(df['Aprendizaje_Sostenibilidad_TIC'] == 'sí, definitivamente.')
 criterios.append(df['Compartir_Conocimiento_Sostenibilidad'] == 'sí, definitivamente.')
 
-# Crear columna 'conciencia_ambiental'
-df['Conciencia_Ambiental'] = (sum(criterios) >= 8).astype(int)
+df['Conciencia_Ambiental'] = (sum(criterios) >= 7).astype(int)
 
-df.drop(columns="Marca_Temporal", inplace=True)
-
+df.drop(columns=["Especialidad", "Grado", "Edad", "Marca_Temporal", "Impacto_CO2_Stickers_Gifs", "Redes_Sociales_Diario", "Compartir_Conocimiento_Sostenibilidad", "Aprendizaje_Sostenibilidad_TIC", "Frecuencia_Uso_Dispositivos", "Genero", "Conocimiento_Huella_Carbono"], inplace=True)
 df = oversample(df, "Conciencia_Ambiental")
-
 df, encoders = encode(df, "./encoding/Sostenibilidad.txt")
 
 target = "Conciencia_Ambiental"
 xtrain, xtest, ytrain, ytest, model = chooseModel(df, target)
 
-explainShapGlobal(df, model, encoders, target, 1)
-
-"""
-generate_counterfactuals(model, df, target, pd.DataFrame(df.iloc[[0]]), encoders, target_value=1)
-"""
+#explainShapGlobal(df, model, encoders, target, 1)
+instancia, ejemplos = generate_counterfactuals(model, df, target, pd.DataFrame(df.iloc[[0]]), encoders, target_value=1)

@@ -3,9 +3,9 @@ OHE
 #Especialidad
 #Grado
 OE
-#Frecuencia_Uso_Dispositivos:nunca;ocasionalmente;algunas horas al día;constantemente
-#Redes_Sociales_Diario:nunca;ocasionalmente;algunas horas al día;constantemente
-#Tiempo_Redes_Sociales:menos de 1 hora;entre 1 hora y 2 horas;entre 2 horas y 3 horas;más de 3 horas
+#Frecuencia_Uso_Dispositivos:constantemente;algunas horas al día;ocasionalmente;nunca
+#Redes_Sociales_Diario:constantemente;algunas horas al día;ocasionalmente;nunca
+#Tiempo_Redes_Sociales:más de 3 horas;entre 2 horas y 3 horas;entre 1 hora y 2 horas;menos de 1 hora
 #Impacto_Uso_Dispositivos:lo desconocía.;no, no lo había considerado.;sí, ocasionalmente lo considero.;sí, a menudo pienso en ello.
 #Apagar_Dispositivos:nunca los apago.;ocasionalmente.;la mayoría de las veces.;siempre apago mis dispositivos.
 #Enviar_Correos_Pesados:nunca.;ocasionalmente.;la mayoría de las veces.;siempre.
@@ -20,4 +20,3 @@ LE
 #Reducir_Stickers_Gifs
 #Aprendizaje_Sostenibilidad_TIC
 #Compartir_Conocimiento_Sostenibilidad
-#Conciencia_Ambiental

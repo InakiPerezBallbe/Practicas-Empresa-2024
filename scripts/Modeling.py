@@ -76,8 +76,15 @@ def chooseModel(df: pd.DataFrame, target: str, test_size=0.2) -> Tuple[pd.DataFr
 
         for nombre, modelo in modelos.items():
             try:
-                # `cross_validate` entrena y evalúa el modelo usando la estrategia de validación cruzada 'cv'.
-                resultados = cross_validate(modelo, X, Y, cv=cv, scoring=metricas, error_score='raise')
+                # 👉 Verificación y conversión especial si se selecciona CatBoostClassifier
+                if isinstance(modelo, CatBoostClassifier):
+                    X_copy = X.astype(str).copy()
+                    Y_copy = Y.astype(str).copy()
+                    modelo.set_params(cat_features=list(X_copy.columns))
+                    resultados = cross_validate(modelo, X_copy, Y_copy, cv=cv, scoring=metricas, error_score='raise')
+                else:
+                    # `cross_validate` entrena y evalúa el modelo usando la estrategia de validación cruzada 'cv'.
+                    resultados = cross_validate(modelo, X, Y, cv=cv, scoring=metricas, error_score='raise')
                 # Crea una fila con la media y la desviación estándar de los resultados de cada métrica.
                 fila = {
                     metrica: f"{np.mean(resultados[f'test_{metrica}']):.4f} ± {np.std(resultados[f'test_{metrica}']):.4f}"
@@ -125,15 +132,18 @@ def chooseModel(df: pd.DataFrame, target: str, test_size=0.2) -> Tuple[pd.DataFr
     if nombre_modelo == "Naive Bayes":
         modelos = { 'GaussianNB': GaussianNB(), 'MultinomialNB': MultinomialNB(), 'BernoulliNB': BernoulliNB(), 'ComplementNB': ComplementNB(), 'CategoricalNB': CategoricalNB() }
     elif nombre_modelo == "Árboles de Decisión":
-        modelos = { 'Decision Tree': DecisionTreeClassifier(random_state=42), 'Random Forest': RandomForestClassifier(random_state=42), 'Extra Trees': ExtraTreesClassifier(random_state=42), 'Gradient Boosting': GradientBoostingClassifier(random_state=42), 'Hist Gradient Boosting': HistGradientBoostingClassifier(random_state=42), 'AdaBoost': AdaBoostClassifier(random_state=42), 'XGBoost': XGBClassifier(eval_metric='logloss', random_state=42), 'LightGBM': LGBMClassifier(random_state=42, verbose=-1), 'CatBoost': CatBoostClassifier(verbose=0, random_state=42) }
+        modelos = { 'Decision Tree': DecisionTreeClassifier(random_state=42), 'Random Forest': RandomForestClassifier(random_state=42), 'Extra Trees': ExtraTreesClassifier(random_state=42), 'Gradient Boosting': GradientBoostingClassifier(random_state=42), 'Hist Gradient Boosting': HistGradientBoostingClassifier(random_state=42), 'AdaBoost': AdaBoostClassifier(random_state=42), 'XGBoost': XGBClassifier(eval_metric='logloss', random_state=42, enable_categorical=True), 'LightGBM': LGBMClassifier(random_state=42, verbose=-1), 'CatBoost': CatBoostClassifier(verbose=0, random_state=42, cat_features=[col for col in df.columns if col != 'Conciencia_Ambiental']) }
     elif nombre_modelo == "Lineales":
         modelos = { "LogisticRegression": LogisticRegression(max_iter=1000), "SGDClassifier (hinge)": SGDClassifier(loss="hinge", max_iter=1000), "SGDClassifier (log)": SGDClassifier(loss="log_loss", max_iter=1000) }
     elif nombre_modelo == "Support Vector Machine":
         modelos = { "SVC (RBF kernel)": SVC(kernel='rbf', probability=True), "NuSVC": NuSVC(probability=True) }
     elif nombre_modelo == "Neighbors":
-        modelos = { "KNeighborsClassifier": KNeighborsClassifier(), "RadiusNeighborsClassifier": RadiusNeighborsClassifier(radius=10.0) }
+        modelos = { "KNeighborsClassifier": KNeighborsClassifier(), "RadiusNeighborsClassifier": RadiusNeighborsClassifier(radius=50.0) }
     
     if nombre_modelo != "Redes Neuronales":
+        if isinstance(modelo_seleccionado, CatBoostClassifier):
+            xtrain= xtrain.astype(int).copy()
+            ytrain = ytrain.astype(int).copy()
         # Evalúa la nueva lista de modelos específicos.
         metricsTable(modelos, metricas, xtrain, ytrain, cv)
         # Pide al usuario que elija el modelo final.
@@ -141,6 +151,8 @@ def chooseModel(df: pd.DataFrame, target: str, test_size=0.2) -> Tuple[pd.DataFr
     
     # --- 6. Entrenamiento del Modelo Final ---
     # Entrena el modelo final seleccionado por el usuario con TODO el conjunto de entrenamiento.
+    # 👉 Verificación y conversión especial si se selecciona CatBoostClassifier
+    
     modelo_seleccionado.fit(xtrain, ytrain)
 
     # --- 7. Devolución de Resultados ---

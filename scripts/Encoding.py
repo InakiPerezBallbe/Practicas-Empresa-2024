@@ -62,7 +62,8 @@ def encode(df: pd.DataFrame, link: str) -> Tuple[pd.DataFrame, dict]:
                         if enc_type == "LE":
                             # Valida que la columna exista en el DataFrame.
                             if col not in df_copy.columns:
-                                raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+                                continue
+                                #raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
 
                             # Crea una instancia de LabelEncoder.
                             le = LabelEncoder()
@@ -86,7 +87,8 @@ def encode(df: pd.DataFrame, link: str) -> Tuple[pd.DataFrame, dict]:
 
                             # Valida que la columna (después de extraer categorías opcionales) exista.
                             if col not in df_copy.columns:
-                                raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+                                continue
+                                #raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
                             
                             # Crea una instancia de OrdinalEncoder.
                             # Si se especificaron categorías, se usan; de lo contrario, se infieren.
@@ -100,7 +102,8 @@ def encode(df: pd.DataFrame, link: str) -> Tuple[pd.DataFrame, dict]:
                         elif enc_type == "OHE":
                             # Valida que la columna exista.
                             if col not in df_copy.columns:
-                                raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
+                                continue
+                                #raise KeyError(f"La columna '{col}' no existe en el DataFrame.")
                             
                             # Crea una instancia de OneHotEncoder.
                             # sparse_output=False devuelve un array NumPy denso en lugar de una matriz dispersa.
@@ -133,7 +136,6 @@ def encode(df: pd.DataFrame, link: str) -> Tuple[pd.DataFrame, dict]:
                             # stopwords son palabras comunes que generalmente se eliminan antes de procesar texto.
                             stopwords_combinadas = list(stopwords.words('spanish')) + list(stopwords.words('english'))
                             stopwords_combinadas = list(set(stopwords_combinadas)) # Eliminar duplicados
-
 
                             # Crea una instancia de CountVectorizer.
                             # strip_accents='ascii' elimina acentos.
