@@ -32,3 +32,8 @@ Se terminó de cambiar el archivo que se mencionó la semana pasada (Modeling.py
 - Umbral mínimo 7 con y sin sobremuestreo
 - Umbral mínimo 8 con y sin sobremuestreo
 Y se estudió la influencia del modelo en las librerias SHAP y DiCE.
+
+<u>Semana 9 (16/06 - 20/06)</u>
+Se terminó de investigar el proyecto de Sostenibilidad. Para ello, se termiinó el estudio de influencia del modelo de las librerías SHAP y DICE y los resultados de estos. En SHAP se sacó los gráficos de importancia de atributos en base al modelo seleccionado y se fueron eliminando los que tenian 0 importancia en el proceso de clasificación. Este proceso se siguió hasta que dejaron de ver atributos con importancia 0 y el modelo dejó de mejorar sus métricas debido a que no hay más ruido. Después de eso, se hicieron los ejemplos contrafactuales, para ello se eliminaron los atributos que no se pueden cambiar (aunque se podria seleccionar los atributos que si se pueden cambiar) y se vieron los resultados de estos.
+
+Ahora, durante esta semana se dió la tarea de analizar de la misma manera, menos por el razonamiento contrafactual, una base de datos que consiste en si ciertos puntos de la costa son optimos para construir una planta hidroelectrica dependiendo de la distancia de la costa y la potencia de sus olas. Hasta ahora solo se hizo el análisis del mejor modelo de datos y el estudio de si es necesario sobremuestrear o no ya que no hay tantas instancias positivas (las importantes) como negativas.

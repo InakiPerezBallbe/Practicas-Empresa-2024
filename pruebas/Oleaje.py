@@ -19,11 +19,13 @@ columnas_a_normalizar = ['longitude', 'latitude', 'mean_power', 'distancia_m', '
 scaler = StandardScaler()
 df[columnas_a_normalizar] = scaler.fit_transform(df[columnas_a_normalizar])
 
+target = "optimo"
+df = oversample(df, target)
+
 df.drop(columns=["site_id", "longitude", "latitude"], inplace=True)
 
 #print(df["optimo"].value_counts())
 
-target = "optimo"
 xtrain, xtest, ytrain, ytest, model = chooseModel(df, target)
 
 explainShapGlobal(df, model, None, target, 1)
