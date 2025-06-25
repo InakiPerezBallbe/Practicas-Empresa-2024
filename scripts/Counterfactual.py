@@ -90,7 +90,3 @@ def generate_counterfactuals(model, df: pd.DataFrame, target: str, row: pd.DataF
                     print(f"- Cambiar '{col}' de '{original_val}' a '{cf_val}'.")
 
     # Retornar el conjunto de características modificadas originales y las nuevas generadas
-    return original_features, cf_decoded
-
-"""elif order:
-    print(f"- ⚠️ No se recomienda bajar el nivel en '{col}' de '{original_val}' a '{cf_val}'.")"""
